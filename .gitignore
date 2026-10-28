@@ -12,3 +12,6 @@ target
 # Local env files (may hold real secrets)
 .env
 .env.local
+
+# Local scratch files (e.g. project briefs) that must not reach the public repo
+tmp/
