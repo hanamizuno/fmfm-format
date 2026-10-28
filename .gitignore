@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# MoonBit build artifacts and dependencies
+_build/
+target/
+target
+.mooncakes/
+.repos/
+.moonagent/
+
+# Local env files (may hold real secrets)
+.env
+.env.local

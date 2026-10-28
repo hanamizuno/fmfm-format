@@ -1,0 +1,41 @@
+# Fork of the built-in Docker Sandboxes `claude` agent. Its only purpose is to
+# replace the default YOLO launch command with auto permission mode.
+#
+# The sbx claude template launches `claude --dangerously-skip-permissions` by
+# default (permission checks skipped entirely). Passing flags through `--` only
+# APPENDS to the default flags and cannot cancel them, so the entrypoint has to
+# be replaced. entrypoint lives in the `sandbox:` block, which a mixin
+# (../kit/spec.yaml) must not declare — hence this separate kit.
+#
+# Usage (host side; the positional agent argument is this kit's name, and --kit
+# is given twice):
+#   sbx run claude-auto --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
+#
+# Caveat: a kit that extends the built-in claude cannot use the proxy-managed
+# OAuth, so an API key must be registered on the host before the first launch
+# (`sbx secret set anthropic`). To keep subscription auth, do not use this kit —
+# create the sandbox and launch through `sbx exec` instead
+# (/docs/knowledge/runbooks/agent-sandbox-sbx.md "Overriding the YOLO default", method A).
+#
+# Schema: https://docs.docker.com/ai/sandboxes/customize/kit-reference/
+schemaVersion: "2"
+kind: sandbox
+name: claude-auto
+displayName: Claude Code (auto mode)
+description: Fork of claude that launches Claude Code in auto permission mode
+extends: claude
+
+sandbox:
+  # The effective command is entrypoint + command (command.interactive for TTY
+  # sessions, command.default otherwise). Whether the parent's
+  # `--dangerously-skip-permissions` sits in its entrypoint or in its command
+  # tail is not published, so BOTH are declared explicitly to inherit nothing.
+  # Replacing only the entrypoint could yield
+  # `claude --permission-mode auto --dangerously-skip-permissions` if the bypass
+  # flag lives in the parent's command — still YOLO, with no visible error.
+  # interactive falls back to default when omitted, but whether the parent's
+  # interactive would survive is ambiguous, so it is spelled out as well.
+  entrypoint: [claude]
+  command:
+    default: ["--permission-mode", "auto"]
+    interactive: ["--permission-mode", "auto"]

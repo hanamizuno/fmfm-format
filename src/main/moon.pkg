@@ -1,0 +1,6 @@
+import {
+  "myuser/myapp" @lib,
+  "moonbitlang/async",
+}
+
+pkgtype(kind: "executable")

@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "myuser/myapp"
+
+// Values
+pub fn fib(Int32) -> Int64
+
+pub fn sum(data~ : Array[Int32], start? : Int32, length? : Int32) -> Int32
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
