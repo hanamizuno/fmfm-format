@@ -1,0 +1,34 @@
+# https://editorconfig.org/
+
+root = true
+
+[*]
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+end_of_line = lf
+charset = utf-8
+
+# MoonBit sources are formatted by `moon fmt` (2-space indent); keep editors aligned
+[*.mbt]
+indent_size = 2
+
+# Allow trailing whitespaces for breakline in markdown
+[*.md]
+trim_trailing_whitespace = false
+
+# Allow trailing whitespaces for blank column in csv, tsv
+[*.csv]
+trim_trailing_whitespace = false
+[*.tsv]
+trim_trailing_whitespace = false
+
+# Allow any indent size for JSON
+[*.json]
+indent_size = unset
+
+# Ignore paths
+# [/hoge/fuga/**]
+# trim_trailing_whitespace = unset
+# max_line_length = unset

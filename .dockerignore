@@ -1,0 +1,17 @@
+# MoonBit build artifacts and dependency cache (must never clobber the image-built ones)
+_build/
+target/
+.mooncakes/
+.moonagent/
+.repos/
+
+# VCS
+.git
+
+# macOS
+.DS_Store
+
+# Local editor/agent state
+.claude/
+.sandbox/
+.vscode/

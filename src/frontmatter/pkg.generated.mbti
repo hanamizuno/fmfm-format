@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hanamizuno/fmfm/frontmatter"
+
+import {
+  "hanamizuno/fmfm/diagnostic",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Entry {
+  key : String
+  key_range : @diagnostic.Range
+  value : Node
+} derive(@debug.Debug)
+
+pub(all) enum Node {
+  Scalar(String, @diagnostic.Range)
+  Sequence(Array[Node], @diagnostic.Range)
+  Mapping(Array[Entry], @diagnostic.Range)
+} derive(@debug.Debug)
+pub fn Node::from_json(Json, @diagnostic.Range) -> Self
+pub fn Node::get(Self, String) -> Entry?
+pub fn Node::range(Self) -> @diagnostic.Range
+pub fn Node::to_json(Self) -> Json
+
+// Type aliases
+
+// Traits

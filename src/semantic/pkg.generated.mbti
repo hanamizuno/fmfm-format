@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hanamizuno/fmfm/semantic"
+
+import {
+  "hanamizuno/fmfm/ast",
+  "hanamizuno/fmfm/diagnostic",
+  "hanamizuno/fmfm/frontmatter",
+  "hanamizuno/fmfm/syntax",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn lower(@syntax.RawDocument, front_matter? : @frontmatter.Node) -> LowerResult
+
+// Errors
+
+// Types and methods
+pub(all) struct LowerResult {
+  document : @ast.Document
+  diagnostics : Array[@diagnostic.Diagnostic]
+} derive(@debug.Debug)
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hanamizuno/fmfm/json"
+
+import {
+  "hanamizuno/fmfm/ast",
+  "hanamizuno/fmfm/diagnostic",
+}
+
+// Values
+pub const FormatVersion : String = "0.1"
+
+pub fn dump(@ast.Document, Array[@diagnostic.Diagnostic]) -> Json
+
+pub fn to_json(@ast.Document) -> Json
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

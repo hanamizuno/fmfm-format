@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hanamizuno/fmfm/syntax"
+
+import {
+  "hanamizuno/fmfm/diagnostic",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse(String) -> ParseResult
+
+// Errors
+
+// Types and methods
+pub(all) struct Attribute {
+  key : String
+  value : String
+  key_range : @diagnostic.Range
+  value_range : @diagnostic.Range
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct ParseResult {
+  document : RawDocument
+  diagnostics : Array[@diagnostic.Diagnostic]
+} derive(ToJson, @debug.Debug)
+
+pub(all) enum RawBlock {
+  Markdown(RawMarkdown)
+  Directive(RawDirective)
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct RawDirective {
+  name : String
+  attributes : Array[Attribute]
+  body : Array[RawBlock]
+  range : @diagnostic.Range
+  header_range : @diagnostic.Range
+  name_range : @diagnostic.Range
+} derive(ToJson, @debug.Debug)
+pub fn RawDirective::attribute(Self, String) -> Attribute?
+
+pub(all) struct RawDocument {
+  front_matter : RawFrontMatter?
+  blocks : Array[RawBlock]
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct RawFrontMatter {
+  source : String
+  range : @diagnostic.Range
+} derive(ToJson, @debug.Debug)
+
+pub(all) struct RawMarkdown {
+  source : String
+  range : @diagnostic.Range
+} derive(ToJson, @debug.Debug)
+
+// Type aliases
+
+// Traits

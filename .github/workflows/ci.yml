@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          # Same pinned tag as the Dockerfile (ARG JUST_VERSION) and .sandbox/kit
+          just-version: 1.58.0
+      - name: Install MoonBit CLI
+        # cli.moonbitlang.com only hosts `latest` (and `nightly`) binaries, so the
+        # toolchain tracks the latest release; the Moon version step logs the
+        # version each run actually used.
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Moon version
+        run: moon version --all
+      - name: Moon update
+        run: moon update
+      - name: Verify format
+        run: just fmt-check
+      - name: Verify generated interfaces
+        run: just info-check
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: js
+          - os: ubuntu-latest
+            target: native
+          - os: macos-latest
+            target: native
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          # Same pinned tag as the Dockerfile (ARG JUST_VERSION) and .sandbox/kit
+          just-version: 1.58.0
+      - name: Install MoonBit CLI
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Moon version
+        run: moon version --all
+      - name: Moon update
+        run: moon update
+      - name: Moon check
+        run: just target="$TARGET" check
+      - name: Moon test
+        run: just target="$TARGET" test

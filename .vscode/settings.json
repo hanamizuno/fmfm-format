@@ -1,0 +1,6 @@
+{
+  "editor.formatOnSave": true,
+  "[moonbit]": {
+    "editor.defaultFormatter": "moonbit.moonbit-lang"
+  }
+}

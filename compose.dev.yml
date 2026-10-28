@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command: moon version --all
+    volumes:
+      - .:/workspace:cached
+      # Anonymous volumes so the bind mount above does not shadow the image-built
+      # build artifacts and dependency cache
+      - /workspace/_build
+      - /workspace/.mooncakes

@@ -1,0 +1,29 @@
+repos:
+  - repo: local
+    hooks:
+      - id: moon-check
+        name: moon check
+        entry: moon check --deny-warn
+        language: system
+        pass_filenames: false
+        files: '(\.mbt|\.mbt\.md|(^|/)moon\.(mod|pkg))$'
+      - id: moon-fmt
+        name: moon fmt
+        entry: moon fmt
+        language: system
+        pass_filenames: false
+        files: '(\.mbt|\.mbt\.md|(^|/)moon\.(mod|pkg))$'
+      # Optional: install with `moon install mizchi/starlint/cmd/starlint`
+      # - id: starlint
+      #   name: starlint
+      #   entry: starlint .
+      #   language: system
+      #   pass_filenames: false
+      #   files: '\.mbt$'
+      - id: secretlint
+        name: secretlint (staged)
+        # No package.json here, so run via npx (packages cached after first run).
+        # secretlint 13 requires Node.js 22+.
+        entry: npx --yes --package secretlint@13.0.6 --package @secretlint/secretlint-rule-preset-recommend@13.0.6 -- secretlint --no-color
+        language: system
+        pass_filenames: true

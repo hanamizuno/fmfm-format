@@ -1,0 +1,50 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hanamizuno/fmfm/diagnostic"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn has_errors(Array[Diagnostic]) -> Bool
+
+pub fn sort(Array[Diagnostic]) -> Array[Diagnostic]
+
+// Errors
+
+// Types and methods
+pub(all) struct Diagnostic {
+  level : Level
+  code : String
+  message : String
+  range : Range
+  suggestion : String?
+} derive(Eq, ToJson, @debug.Debug)
+pub fn Diagnostic::error(String, String, Range, suggestion? : String) -> Self
+pub fn Diagnostic::format(Self, file? : String) -> String
+pub fn Diagnostic::warning(String, String, Range, suggestion? : String) -> Self
+
+pub(all) enum Level {
+  Error
+  Warning
+} derive(Eq, @debug.Debug)
+pub fn Level::to_string(Self) -> String
+pub impl Show for Level
+pub impl ToJson for Level
+
+pub(all) struct Position {
+  line : Int32
+  column : Int32
+  offset : Int32
+} derive(Compare, Eq, ToJson, @debug.Debug)
+
+pub(all) struct Range {
+  start : Position
+  end : Position
+} derive(Eq, ToJson, @debug.Debug)
+pub fn Range::point(Position) -> Self
+pub fn Range::union(Self, Self) -> Self
+
+// Type aliases
+
+// Traits

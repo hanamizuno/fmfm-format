@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hanamizuno/fmfm"
+
+import {
+  "hanamizuno/fmfm/ast",
+  "hanamizuno/fmfm/diagnostic",
+  "hanamizuno/fmfm/frontmatter",
+}
+
+// Values
+pub const FormatVersion : String = "0.1"
+
+pub fn analyze(String, front_matter? : @frontmatter.Node) -> Analysis
+
+// Errors
+
+// Types and methods
+pub(all) struct Analysis {
+  document : @ast.Document
+  diagnostics : Array[@diagnostic.Diagnostic]
+}
+
+// Type aliases
+
+// Traits

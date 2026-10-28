@@ -1,0 +1,250 @@
+# Shared mixin kit for Docker Sandboxes (sbx).
+# Apply it from the repository checkout on the HOST (--clone is mandatory; see
+# /docs/knowledge/runbooks/agent-sandbox-sbx.md "Always use clone mode"):
+#   sbx create --clone --kit ./.sandbox/kit claude .
+#
+# The built-in claude / codex agents launch in YOLO mode by default, and a mixin
+# cannot override that: entrypoint / command live in the `sandbox:` block, which
+# a mixin must not declare. Two ways around it:
+#   A) create the sandbox only, then exec the agent with the flags you want
+#      (keeps subscription auth):
+#        sbx create --clone --kit ./.sandbox/kit claude .
+#        sbx exec -it -w "$PWD" claude-<dir> claude --permission-mode auto
+#   B) stack a fork kit that replaces the launch command (no OAuth; API key):
+#        sbx run claude-auto   --clone --kit ./.sandbox/kit --kit ./.sandbox/claude-auto
+#        sbx run codex-approve --clone --kit ./.sandbox/kit --kit ./.sandbox/codex-approve
+# Details: /docs/knowledge/runbooks/agent-sandbox-sbx.md "Overriding the YOLO default".
+#
+# One kit serves every agent: agent-specific setup (Codex config seed, Codex
+# plugin registration in Claude Code) is guarded, so it is a no-op in a sandbox
+# whose template lacks that agent.
+#
+# Schema: https://docs.docker.com/ai/sandboxes/customize/kit-reference/
+# Verification status and open questions: /docs/knowledge/research/sbx-verification.md
+schemaVersion: "2"
+kind: mixin
+name: moonbit-agent-env
+description: MoonBit toolchain + just + Node (js target) + C toolchain (native target) for agent runs
+
+setup:
+  install:
+    # Install commands run as root (user "0") by default; user-scoped setup
+    # (MoonBit toolchain, Claude plugin registration) runs as user "1000"
+    # (agent). Every step is idempotent — they re-run only when the sandbox is
+    # recreated (sbx rm -> create).
+
+    # Mirrors the Dockerfile `base` + `dev` stages: build-essential because the
+    # MoonBit native backend compiles through a C toolchain, Node because it
+    # executes js-target tests and `moon run --target js` (the default target).
+    # Any Node version the template ships is fine (the dev image uses Debian's).
+    - description: System packages (C toolchain for the native target, Node for the js target)
+      command: |
+        set -eu
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends ca-certificates curl git build-essential
+        command -v node >/dev/null 2>&1 || apt-get install -y --no-install-recommends nodejs npm
+
+    # Same pinned tag as the Dockerfile (ARG JUST_VERSION) and CI (setup-just
+    # just-version) — bump all three together.
+    # With --tag the installer goes straight to the GitHub release asset and
+    # never calls api.github.com.
+    - description: just (task runner), pinned to the Dockerfile's version
+      command: |
+        set -eu
+        command -v just >/dev/null 2>&1 || \
+          curl --proto '=https' --tlsv1.2 -fsSL https://just.systems/install.sh \
+            | bash -s -- --tag 1.58.0 --to /usr/local/bin
+
+    # The toolchain tracks the latest release, exactly like the Dockerfile and
+    # CI: cli.moonbitlang.com only hosts `latest` (and `nightly`) binaries.
+    # It installs into the agent's home (~/.moon), not system-wide.
+    - description: MoonBit toolchain (agent user)
+      user: "1000"
+      command: |
+        set -eu
+        [ -x "$HOME/.moon/bin/moon" ] || curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+
+    # The installer only appends ~/.moon/bin to PATH in ~/.bashrc, which the
+    # non-interactive shells agents spawn never read. Symlinking into
+    # /usr/local/bin makes `moon` resolvable for every process regardless of how
+    # it was started (`sbx exec`, agent tool calls, login shells). moon resolves
+    # its siblings and the core library from its real location, so it works
+    # through a symlink (checked on linux-aarch64: check / test on js + native,
+    # info). `environment.variables` is deliberately not used for this: whether
+    # it expands $PATH is undocumented, and a literal PATH would clobber the
+    # template's own.
+    - description: Expose the MoonBit binaries on the default PATH
+      command: |
+        set -eu
+        for f in /home/agent/.moon/bin/*; do
+          [ -f "$f" ] && [ -x "$f" ] || continue
+          case "$f" in *.wasm) continue ;; esac
+          ln -sf "$f" "/usr/local/bin/$(basename "$f")"
+        done
+
+    # Populate the registry index up front (project dependencies themselves are
+    # fetched into .mooncakes/ by the first `moon check` in the workspace) and
+    # fail sandbox creation early if the toolchain is broken.
+    - description: Registry index + toolchain smoke test (agent user)
+      user: "1000"
+      command: |
+        set -eu
+        moon version --all
+        just --version
+        moon update
+
+    # --- Orchestration --------------------------------------------------------
+    # Lets a claude sandbox act as the parent with Codex as the delegate. In a
+    # codex sandbox the CLI is already bundled, so the `command -v` guard makes
+    # this a no-op. Pinned (reproducibility + supply chain) to a version that
+    # has the `--approve-for-me` flag the fork kit relies on.
+    - description: Codex CLI (skipped when the template already bundles it)
+      command: |
+        set -eu
+        command -v codex >/dev/null 2>&1 || npm install -g @openai/codex@0.154.0
+
+    # Registers Codex as a Claude Code plugin (codex-rescue subagent + /codex
+    # skills). Skipped where claude is absent; guarded on "already installed"
+    # to stay idempotent. Marketplace installs cannot be version-pinned, so
+    # this one always gets the latest.
+    - description: Register the Codex plugin in Claude Code (claude sandboxes only)
+      user: "1000"
+      command: |
+        set -eu
+        command -v claude >/dev/null 2>&1 || exit 0
+        if ! claude plugin list 2>/dev/null | grep -q 'codex@openai-codex'; then
+          claude plugin marketplace add openai/codex-plugin-cc || true
+          claude plugin install codex@openai-codex
+        fi
+
+  files:
+    # Initial Codex CLI config. Left alone if the codex template already seeded
+    # one. ${WORKDIR} expands to the workspace's absolute path at sandbox
+    # creation (in clone mode: the path of the clone inside the VM).
+    - path: /home/agent/.codex/config.toml
+      onlyIfMissing: true
+      content: |
+        #:schema https://developers.openai.com/codex/config-schema.json
+
+        # The sandbox (microVM) is the isolation boundary for autonomous runs.
+        # Writes stay scoped to the workspace, and escalated approval requests
+        # go to the automatic reviewer instead of a human (the CLI's
+        # `--approve-for-me`). Unlike `approval_policy = "never"`, escapes from
+        # the workspace sandbox are risk-assessed before being allowed/denied,
+        # so delegated runs neither stall on a prompt nor run unchecked.
+        approval_policy = "on-request"
+        approvals_reviewer = "auto_review"
+        sandbox_mode = "workspace-write"
+        project_doc_max_bytes = 65536
+
+        [sandbox_workspace_write]
+        network_access = true
+
+        [projects."${WORKDIR}"]
+        trust_level = "trusted"
+
+permissions:
+  network:
+    # Additions on top of deny-by-default — only what this repository's work
+    # needs. This ADDS to the default policy; it does not trim the broad
+    # defaults. Auditing and narrowing the effective policy happens on the host
+    # (/docs/knowledge/runbooks/agent-sandbox-sbx.md "Auditing the network policy").
+    allow:
+      # MoonBit: toolchain installer + binaries, registry index (git), packages
+      - cli.moonbitlang.com
+      - mooncakes.io
+      - download.mooncakes.io
+      # download.mooncakes.io 302-redirects package archives and symbols.zip to
+      # this CloudFront distribution (observed 2026-10). Never widen it to
+      # *.cloudfront.net — any AWS customer can serve from that namespace.
+      - d15l9c1mnzh3r.cloudfront.net
+      # just installer (the binary itself comes from a GitHub release asset)
+      - just.systems
+      # OS packages (the sbx templates are Ubuntu; Debian listed for parity)
+      - archive.ubuntu.com
+      - security.ubuntu.com
+      - ports.ubuntu.com
+      - deb.debian.org
+      - security.debian.org
+      # npm: Codex CLI, and secretlint via npx (pre-commit hook)
+      - registry.npmjs.org
+      # Claude Code
+      - api.anthropic.com
+      - statsig.anthropic.com
+      # Only needed if an interactive (OAuth) login has to happen inside the VM;
+      # the default policy denies these.
+      - console.anthropic.com
+      - claude.ai
+      # Codex
+      - api.openai.com
+      - auth.openai.com
+      - chatgpt.com
+      # GitHub (incl. release assets, which redirect off github.com)
+      - github.com
+      - api.github.com
+      - codeload.github.com
+      - objects.githubusercontent.com
+      - release-assets.githubusercontent.com
+      - raw.githubusercontent.com
+
+credentials:
+  # A fine-grained PAT registered on the host with
+  # `sbx secret set github --sandbox <sandbox-name>` is injected by the host-side
+  # proxy as a header, only on requests to GitHub (`service` matches the name
+  # given to `sbx secret set`). Register it scoped to the sandbox — never with
+  # -g, which would leak it into other repositories' sandboxes — and enter the
+  # value at the interactive prompt (or via --ref / --command), never with -t.
+  # Inside the VM, GH_TOKEN holds a sentinel; the proxy rewrites the header just
+  # before sending, so the real value never enters the VM. PAT scopes: see
+  # docs/knowledge/runbooks/agent-sandbox-sbx.md "GitHub PAT scope".
+  - service: github
+    apiKey:
+      name: GH_TOKEN
+      proxyManaged: true
+      inject:
+        - domain: api.github.com
+          header: Authorization
+          format: "token %s"
+        - domain: github.com
+          header: Authorization
+          format: "token %s"
+  # Template for a task API key. To use it: uncomment, run
+  # `sbx secret set example --sandbox <sandbox-name>` on the host, then recreate
+  # the sandbox (this kit has setup.files, so `sbx kit add` cannot apply it).
+  # - service: example
+  #   apiKey:
+  #     name: EXAMPLE_API_KEY
+  #     proxyManaged: true
+  #     inject:
+  #       - domain: api.example.com
+  #         header: Authorization
+  #         format: "Bearer %s"
+
+agentInstructions:
+  content: |
+    - You are inside a Docker Sandboxes microVM. The workspace is an independent
+      git clone (clone mode), NOT the host's working tree. Edits are not synced
+      back to the host — always commit and push your results (`sbx rm` destroys
+      any commit that was not pushed).
+    - Commits added on the host after this sandbox was created can be pulled from
+      the read-only bind mount: `git fetch /run/sandbox/source`. `origin` points
+      at GitHub and does not contain the host's unpushed commits.
+    - Gitignored files (`_build/`, `.mooncakes/`, `.env`, local config) are not
+      part of the clone. The first `moon check` / `just` in the workspace fetches
+      dependencies into `.mooncakes/`.
+    - Use the `just` recipes from AGENTS.md (`just`, `just ci`, `just ci-all`).
+      Both targets work here: Node runs the js target, and a C toolchain is
+      installed for `just target=native ...`.
+    - Do not stop background processes with `pkill -f <pattern>`: the pattern
+      also matches your own shell's command line and kills it. Go through the
+      PID instead: `PID=$(pgrep -f '<pattern>' | head -1); kill "$PID"`.
+    - GitHub auth is injected as a header by a host-side proxy. The GH_TOKEN
+      environment variable holds a sentinel, not a real token — the real value
+      does not exist in this environment. Never try to read, find, or print it.
+    - Host remotes are mirrored under the same name, so `origin` may be an SSH
+      URL (`git@github.com:...`). There is no SSH key in the VM: push over HTTPS
+      instead (`git push https://github.com/<owner>/<repo>.git <branch>`).
+    - Outbound traffic is deny-by-default with a domain allowlist. The kit only
+      adds what this repository needs; it is not the whole effective policy. A
+      blocked request returns a body starting with `Blocked by network policy`.

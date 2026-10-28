@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hanamizuno/fmfm/html"
+
+import {
+  "hanamizuno/fmfm/ast",
+}
+
+// Values
+pub fn escape(String) -> String
+
+pub fn page(String, title~ : String, css? : String, lang? : String) -> String
+
+pub fn render(@ast.Document, Options) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct Options {
+  markdown : (String) -> String
+  header : Bool
+  article : Bool
+}
+pub fn Options::new((String) -> String, header? : Bool, article? : Bool) -> Self
+
+// Type aliases
+
+// Traits

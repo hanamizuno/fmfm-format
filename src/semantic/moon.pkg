@@ -1,0 +1,10 @@
+import {
+  "hanamizuno/fmfm/ast",
+  "hanamizuno/fmfm/diagnostic",
+  "hanamizuno/fmfm/frontmatter",
+  "hanamizuno/fmfm/syntax",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/string",
+}
+
+warnings = "-79"

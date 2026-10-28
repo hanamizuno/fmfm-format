@@ -1,0 +1,11 @@
+import {
+  "hanamizuno/fmfm/ast",
+}
+
+import {
+  "hanamizuno/fmfm/frontmatter",
+  "hanamizuno/fmfm/semantic",
+  "hanamizuno/fmfm/syntax",
+} for "test"
+
+warnings = "-79"

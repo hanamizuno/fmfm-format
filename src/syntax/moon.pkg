@@ -1,0 +1,6 @@
+import {
+  "hanamizuno/fmfm/diagnostic",
+  "moonbitlang/core/debug",
+}
+
+warnings = "-79"
